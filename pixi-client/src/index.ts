@@ -11,6 +11,7 @@ import { IMAGE_DATA } from "./js/imageData";
 import { AUDIO_DATA } from "./js/AudioData";
 import { gsap } from "gsap";
 import { MotionPathPlugin } from "gsap/MotionPathPlugin";
+import { t } from "./js/localization";
 import { goToStore } from "./js/goToStore";
 
 gsap.registerPlugin(MotionPathPlugin);
@@ -36,139 +37,170 @@ async function initApp() {
   if (!root) return;
 
   const app = new Application();
-  await app.init({ background: "#000", resizeTo: window, antialias: true });
+  await app.init({
+    background: "#ffffff",
+    resizeTo: window,
+    antialias: true,
+  });
+
   root.appendChild(app.canvas);
 
   const world = new Container();
   app.stage.addChild(world);
 
-  const sky = new Sprite(await loadTexture(IMAGE_DATA.sky_V_00158));
+  const blur = new Sprite(await loadTexture(IMAGE_DATA.blur_00000));
+  blur.anchor.set(0.5);
+  blur.scale.set(1)
+  blur.alpha = 1;
+  app.stage.addChild(blur);
+
+  const sky = new Sprite(await loadTexture(IMAGE_DATA.sky));
+  sky.anchor.set(0.5)
+  sky.scale.set(1)
+  sky.position.set(app.screen.width / 2, app.screen.height / 2);
+
   sky.width = app.screen.width;
   sky.height = app.screen.height;
+
   world.addChild(sky);
 
-  const road = new Sprite(await loadTexture(IMAGE_DATA.road_00000));
-  road.anchor.set(0.5);
-  road.x = app.screen.width / 2;
-  road.y = app.screen.height * 0.5;
+  const road = new Sprite(await loadTexture(IMAGE_DATA.road));
+  road.anchor.set(0.5)
+  road.scale.set(1)
+  road.position.set(app.screen.width * 2, app.screen.height / 2);
+
+  road.width = app.screen.width * 0.5;
+  road.height = app.screen.height;
   world.addChild(road);
 
-  const buildingL = new Sprite(await loadTexture(IMAGE_DATA.building_L_00000));
-  buildingL.anchor.set(0, 0);
-  buildingL.y = app.screen.height * 0.25;
+  const buildingL = new Sprite(await loadTexture(IMAGE_DATA.building_L));
+  buildingL.anchor.set(0.5)
+  buildingL.scale.set(1)
+  buildingL.position.set(app.screen.width * 0.5, app.screen.height * 0.5);
   world.addChild(buildingL);
 
-  const buildingR = new Sprite(await loadTexture(IMAGE_DATA.building_R_00000));
-  buildingR.anchor.set(1, 0);
-  buildingR.x = app.screen.width;
-  buildingR.y = app.screen.height * 0.25;
+  const buildingR = new Sprite(await loadTexture(IMAGE_DATA.building_R));
+  buildingR.anchor.set(0.5);
+  buildingR.scale.set(1);
+  buildingR.position.set(app.screen.width * 0.5, app.screen.height * 0.5);
   world.addChild(buildingR);
 
-  const rail = new Sprite(await loadTexture(IMAGE_DATA.PLBL_rail_road_00045));
-  rail.anchor.set(0.5, 0);
-  rail.x = app.screen.width / 2;
-  rail.y = app.screen.height * 0.55;
+  const rail = new Sprite(await loadTexture(IMAGE_DATA.rail));
+  rail.anchor.set(0.5);
+  rail.scale.set(1);
+  rail.position.set(app.screen.width * 0.5, app.screen.height * 0.5);
   world.addChild(rail);
 
-  const barrier = new Sprite(await loadTexture(IMAGE_DATA.barrier_00041));
+  const barrier = new Sprite(await loadTexture(IMAGE_DATA.barrier));
   barrier.anchor.set(0.5);
-  barrier.x = app.screen.width / 2;
-  barrier.y = app.screen.height * 0.48;
+  barrier.scale.set(0.4);
+  barrier.position.set(app.screen.width * 0.5, app.screen.height * 0.5);
   world.addChild(barrier);
 
-  const chicken = new Sprite(await loadTexture(IMAGE_DATA.chicken_idle_00000));
+  const chicken = new Sprite(await loadTexture(IMAGE_DATA.chicken));
   chicken.anchor.set(0.5);
-  chicken.scale.set(0.8);
-  chicken.x = app.screen.width / 2;
-  chicken.y = app.screen.height * 0.7;
+  chicken.scale.set(0.7);
+  chicken.position.set(app.screen.width * 0.5, app.screen.height * 0.5);
   world.addChild(chicken);
 
-  const bottomPanel = new Sprite(await loadTexture(IMAGE_DATA.PLBL_bottom_panel_00000));
-  bottomPanel.y = app.screen.height - bottomPanel.height - 50;
+  const bottomPanel = new Sprite(await loadTexture(IMAGE_DATA.bottomPanel));
+  bottomPanel.anchor.set(0.5);
+  bottomPanel.scale.set(0.7);
+  bottomPanel.position.set(app.screen.width * 0.5, app.screen.height * 0.5);
   app.stage.addChild(bottomPanel);
 
-  const button = new Sprite(await loadTexture(IMAGE_DATA.button_00000));
-  button.anchor.set(0.5);
+  const button = new Sprite(await loadTexture(IMAGE_DATA.button));
+  button.anchor.set(0.5)
+  button.scale.set(0.65)
   button.x = app.screen.width / 2;
   button.y = bottomPanel.y + bottomPanel.height / 2;
   button.eventMode = "static";
   button.cursor = "pointer";
   app.stage.addChild(button);
 
-  const logo = new Sprite(await loadTexture(IMAGE_DATA.logo_00000));
-  logo.anchor.set(0.5);
+  const runText = new Text(t("RUN!"), {
+    fontSize: 48,
+    fill: 0x000000,
+    fontWeight: "bold",
+    align: "center",
+  });
+
+  runText.anchor.set(0.5);
+  runText.position.set(button.x, button.y);
+  app.stage.addChild(runText);
+
+  const logo = new Sprite(await loadTexture(IMAGE_DATA.logo));
+  logo.anchor.set(0.5)
+  logo.scale.set(0.7)
   logo.x = app.screen.width / 2;
   logo.y = app.screen.height * 0.1;
   app.stage.addChild(logo);
 
-  const euroText = new Text("\u20AC0", new TextStyle({
-    fill: "#000",
-    fontSize: 48,
-    fontWeight: "bold",
-  }));
-  euroText.anchor.set(0.5);
-  euroText.x = button.x;
-  euroText.y = button.y - 60;
-  app.stage.addChild(euroText);
-
   const finger = new Sprite(await loadTexture(IMAGE_DATA["FINGER_-0137"]));
-  finger.anchor.set(0.5);
-  finger.x = chicken.x;
-  finger.y = chicken.y + 150;
-  world.addChild(finger);
+  finger.anchor.set(0.5)
+  finger.scale.set(1)
+  app.stage.addChild(finger);
 
-  gsap.to(finger, {
-    y: finger.y - 50,
-    repeat: -1,
-    yoyo: true,
-    duration: 0.8,
-    ease: "power1.inOut",
+  finger.cursor = "none";
+  app.stage.cursor = "none";
+
+  app.stage.on("pointermove", (event) => {
+    finger.position.set(event.global.x, event.global.y);
   });
+
+  window.addEventListener("resize", resizeLayout);
+  resizeLayout();
 
   const clickSound = loadAudio(AUDIO_DATA.click || "");
   let clickCount = 0;
   let isJumping = false;
 
-  function jumpOverBarrier() {
-    isJumping = true;
-    gsap.to(chicken, {
-      duration: 0.8,
-      ease: "power1.inOut",
-      motionPath: {
-        path: [
-          { x: chicken.x, y: chicken.y },
-          { x: chicken.x, y: chicken.y - 200 },
-          { x: chicken.x, y: chicken.y },
-        ],
-        curviness: 0.3,
-      },
-      onComplete: () => {
-        isJumping = false;
-      },
-    });
+  function resizeLayout() {
+    const w = app.screen.width;
+    const h = app.screen.height;
+
+    blur.position.set(w / 2, h / 5);
+    blur.width = w / 1.7;
+    blur.height = h / 2;
+
+    sky.position.set(w / 2, h / 3);
+    sky.width = w;
+    sky.height = h;
+
+    road.position.set(w / 2, h / 2 + h * 0.25);
+    road.width = w;
+    road.height = h;
+
+    const buildingY = h / 2;
+    const buildingOffsetX = w * 0.35;
+
+    buildingL.position.set(w / 2 - buildingOffsetX, buildingY + 10);
+    buildingR.position.set(w / 2 + buildingOffsetX, buildingY + 10);
+
+    const centerX = w / 2;
+    const centerY = h * 0.72;
+
+    rail.position.set(centerX, centerY);
+    rail.width = w / 1.5;
+
+    barrier.position.set(w / 2, h * 0.1);
+
+    chicken.position.set(centerX, centerY - 70);
+
+    logo.position.set(w / 2, h * 0.06);
+
+    const panelY = h * 0.82;
+    bottomPanel.position.set(w / 2, panelY + 20);
+
+    button.position.set(w / 2, panelY + bottomPanel.height / 2 - 35);
+
+    runText.position.set(button.x, button.y);
   }
 
   app.stage.eventMode = "static";
   app.stage.hitArea = app.screen;
   app.stage.on("pointerdown", async () => {
     if (isJumping) return;
-
-    clickCount++;
-    clickSound.currentTime = 0;
-    clickSound.play().catch(() => { });
-
-    if (clickCount === 1) {
-      jumpOverBarrier();
-    } else if (clickCount === 2) {
-      const blur = new Sprite(await loadTexture(IMAGE_DATA.blur_00000));
-      blur.width = app.screen.width;
-      blur.height = app.screen.height;
-      blur.alpha = 0;
-      app.stage.addChild(blur);
-      gsap.to(blur, { alpha: 1, duration: 0.5 });
-    } else {
-      goToStore();
-    }
   });
 }
 
