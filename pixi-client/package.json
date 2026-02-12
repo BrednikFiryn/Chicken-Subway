@@ -1,0 +1,31 @@
+{
+  "name": "pixi-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npm run dev",
+    "dev": "playable-scripts dev",
+    "build": "playable-scripts build",
+    "preview": "playable-scripts preview",
+    "start:build": "npm run build && npm run preview",
+    "generate:images": "node scripts/generateBase64.js",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "gsap": "^3.14.2",
+    "pixi.js": "^8.8.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@smoud/playable-scripts": "^1.1.4",
+    "@types/gsap": "^1.20.2",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "prettier": "^3.8.1",
+    "typescript": "~5.7.3",
+    "typescript-eslint": "^8.25.0",
+    "vite": "^6.2.0"
+  }
+}
