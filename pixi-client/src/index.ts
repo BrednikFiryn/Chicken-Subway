@@ -13,6 +13,7 @@ import { AUDIO_DATA } from "./js/audioData";
 import { gsap } from "gsap";
 import { MotionPathPlugin } from "gsap/MotionPathPlugin";
 import { t } from "./js/localization";
+import { AnimatedSprite } from "pixi.js";
 import { goToStore } from "./js/goToStore";
 
 gsap.registerPlugin(MotionPathPlugin);
@@ -36,6 +37,10 @@ async function loadTexture(base64: string): Promise<Texture> {
 async function initApp() {
   const root = document.getElementById("pixi-container");
   if (!root) return;
+
+  let buildingLAnim: AnimatedSprite | null = null;
+  let buildingRAnim: AnimatedSprite | null = null;
+  let railAnim: AnimatedSprite | null = null;
 
   const app = new Application();
   await app.init({
@@ -149,13 +154,13 @@ async function initApp() {
   const world = new Container();
   app.stage.addChild(world);
 
-  const blur = new Sprite(await loadTexture(IMAGE_DATA.blur_00000));
+  const blur = new Sprite(await loadTexture(IMAGE_DATA[`blur_00000`]));
   blur.anchor.set(0.5);
   blur.scale.set(1)
   blur.alpha = 1;
   app.stage.addChild(blur);
 
-  const sky = new Sprite(await loadTexture(IMAGE_DATA.sky));
+  const sky = new Sprite(await loadTexture(IMAGE_DATA[`sky V_00158`]));
   sky.anchor.set(0.5)
   sky.scale.set(1)
   sky.position.set(app.screen.width / 2, app.screen.height / 2);
@@ -165,7 +170,7 @@ async function initApp() {
 
   world.addChild(sky);
 
-  const road = new Sprite(await loadTexture(IMAGE_DATA.road));
+  const road = new Sprite(await loadTexture(IMAGE_DATA[`road_00000`]));
   road.anchor.set(0.5)
   road.scale.set(1)
   road.position.set(app.screen.width * 2, app.screen.height / 2);
@@ -174,29 +179,55 @@ async function initApp() {
   road.height = app.screen.height;
   world.addChild(road);
 
-  const buildingL = new Sprite(await loadTexture(IMAGE_DATA.building_L));
+  const buildingL = new Sprite(await loadTexture(IMAGE_DATA[`building L_00000`]));
   buildingL.anchor.set(0.5)
   buildingL.scale.set(1)
   buildingL.position.set(app.screen.width * 0.5, app.screen.height * 0.5);
   world.addChild(buildingL);
 
-  const buildingR = new Sprite(await loadTexture(IMAGE_DATA.building_R));
+  const buildingLFrames: Texture[] = [];
+  for (let i = 0; i <= 13; i++) {
+    const num = i.toString().padStart(5, "0");
+    buildingLFrames.push(
+      await loadTexture(IMAGE_DATA[`building L_${num}`])
+    );
+  }
+
+  const buildingR = new Sprite(await loadTexture(IMAGE_DATA[`building R_00000`]));
   buildingR.anchor.set(0.5);
   buildingR.scale.set(1);
   buildingR.position.set(app.screen.width * 0.5, app.screen.height * 0.5);
   world.addChild(buildingR);
 
-  const rail = new Sprite(await loadTexture(IMAGE_DATA.rail));
+  const buildingRFrames: Texture[] = [];
+  for (let i = 0; i <= 11; i++) {
+    const num = i.toString().padStart(5, "0");
+    buildingRFrames.push(
+      await loadTexture(IMAGE_DATA[`building R_${num}`])
+    );
+  }
+
+  const rail = new Sprite(await loadTexture(IMAGE_DATA[`PLBL rail road_00045`]));
   rail.anchor.set(0.5);
   rail.scale.set(1);
   rail.position.set(app.screen.width * 0.5, app.screen.height * 0.5);
   world.addChild(rail);
 
-  const barrier = new Sprite(await loadTexture(IMAGE_DATA.barrier));
+  const railFrames: Texture[] = [];
+  for (let i = 45; i <= 74; i++) {
+    const num = i.toString().padStart(5, "0");
+    railFrames.push(
+      await loadTexture(IMAGE_DATA[`PLBL rail road_${num}`])
+    );
+  }
+
+  const barrier = new Sprite(await loadTexture(IMAGE_DATA[`barrier_00041`]));
   barrier.anchor.set(0.5);
   barrier.scale.set(0.4);
   barrier.position.set(app.screen.width * 0.5, app.screen.height * 0.5);
   world.addChild(barrier);
+
+  const barrierRunTexture = await loadTexture(IMAGE_DATA[`barrier_00041`]);
 
   const barrierFrames: Texture[] = [];
 
@@ -231,7 +262,7 @@ async function initApp() {
     chicken.texture = chickenFrames[Math.floor(chickenFrameIndex)];
   });
 
-  const bottomPanel = new Sprite(await loadTexture(IMAGE_DATA.bottomPanel));
+  const bottomPanel = new Sprite(await loadTexture(IMAGE_DATA[`PLBL bottom panel_00000`]));
   bottomPanel.anchor.set(0.5);
   bottomPanel.scale.set(0.7);
   bottomPanel.position.set(app.screen.width * 0.5, app.screen.height * 0.5);
@@ -335,7 +366,7 @@ async function initApp() {
   amountText.scale.set(0.7);
   app.stage.addChild(amountText);
 
-  const button = new Sprite(await loadTexture(IMAGE_DATA.button));
+  const button = new Sprite(await loadTexture(IMAGE_DATA[`button_00000`]));
   button.anchor.set(0.5)
   button.scale.set(0.65)
   button.x = app.screen.width / 2;
@@ -411,6 +442,68 @@ async function initApp() {
     });
 
     playBarrierAnimation();
+
+    world.removeChild(chicken);
+    world.removeChild(barrier);
+
+    world.removeChild(buildingL);
+    world.removeChild(buildingR);
+    world.removeChild(rail);
+
+    const buildingLAnim = new AnimatedSprite(buildingLFrames);
+    buildingLAnim.anchor.set(0.5);
+    buildingLAnim.animationSpeed = 0.2;
+    buildingLAnim.loop = true;
+    buildingLAnim.position.copyFrom(buildingL.position);
+    world.addChild(buildingLAnim);
+
+    buildingLAnim.width = buildingL.width;
+    buildingLAnim.height = buildingL.height;
+
+    const buildingRAnim = new AnimatedSprite(buildingRFrames);
+    buildingRAnim.anchor.set(0.5);
+    buildingRAnim.animationSpeed = 0.2;
+    buildingRAnim.loop = true;
+    buildingRAnim.position.copyFrom(buildingR.position);
+    world.addChild(buildingRAnim);
+
+    buildingRAnim.width = buildingR.width;
+    buildingRAnim.height = buildingR.height;
+
+    const railAnim = new AnimatedSprite(railFrames);
+    railAnim.anchor.set(0.5);
+    railAnim.animationSpeed = 0.4;
+    railAnim.loop = true;
+    railAnim.position.copyFrom(rail.position);
+    world.addChild(railAnim);
+
+
+    railAnim.width = rail.width;
+    railAnim.height = rail.height;
+
+    buildingLAnim.roundPixels = true;
+    buildingRAnim.roundPixels = true;
+    railAnim.roundPixels = true;
+
+    buildingLAnim.play();
+    buildingRAnim.play();
+    railAnim.play();
+
+    const barrierRun = new Sprite(barrierRunTexture);
+    barrierRun.anchor.set(0.5);
+    barrierRun.scale.set(0.4);
+    barrierRun.position.copyFrom(barrier.position);
+
+    world.addChild(barrierRun);
+
+    gsap.to(barrierRun, {
+      y: app.screen.height + barrierRun.height,
+      duration: 1,
+      ease: "power2.in",
+      onComplete: () => {
+        world.removeChild(barrierRun);
+      }
+    });
   });
 
 
@@ -425,7 +518,7 @@ async function initApp() {
   runText.position.set(button.x, button.y);
   app.stage.addChild(runText);
 
-  const logo = new Sprite(await loadTexture(IMAGE_DATA.logo));
+  const logo = new Sprite(await loadTexture(IMAGE_DATA["logo_00000"]));
   logo.anchor.set(0.5)
   logo.scale.set(0.7)
   logo.x = app.screen.width / 2;
@@ -518,6 +611,16 @@ async function initApp() {
     bet2.position.set(-155, 0);
     bet5.position.set(0, 0);
     bet10.position.set(155, 0);
+
+    if (buildingLAnim) {
+      buildingLAnim.position.set(w / 2 - buildingOffsetX, buildingY + 10);
+    }
+    if (buildingRAnim) {
+      buildingRAnim.position.set(w / 2 + buildingOffsetX, buildingY + 10);
+    }
+    if (railAnim) {
+      railAnim.position.set(centerX, centerY);
+    }
   }
 
   app.stage.eventMode = "static";
