@@ -41,6 +41,7 @@ async function initApp() {
   let buildingLAnim: AnimatedSprite | null = null;
   let buildingRAnim: AnimatedSprite | null = null;
   let railAnim: AnimatedSprite | null = null;
+  let chickenRunAnim: AnimatedSprite | null = null;
 
   const app = new Application();
   await app.init({
@@ -214,7 +215,7 @@ async function initApp() {
   world.addChild(rail);
 
   const railFrames: Texture[] = [];
-  for (let i = 45; i <= 74; i++) {
+  for (let i = 45; i <= 51; i++) {
     const num = i.toString().padStart(5, "0");
     railFrames.push(
       await loadTexture(IMAGE_DATA[`PLBL rail road_${num}`])
@@ -249,6 +250,15 @@ async function initApp() {
     const num = i.toString().padStart(5, "0");
     chickenFrames.push(
       await loadTexture(IMAGE_DATA[`chicken idle_${num}`])
+    );
+  }
+
+  const chickenRunFrames: Texture[] = [];
+
+  for (let i = 4; i <= 18; i++) {
+    const num = i.toString().padStart(5, "0");
+    chickenRunFrames.push(
+      await loadTexture(IMAGE_DATA[`chicken run_${num}`])
     );
   }
 
@@ -450,41 +460,44 @@ async function initApp() {
     world.removeChild(buildingR);
     world.removeChild(rail);
 
-    const buildingLAnim = new AnimatedSprite(buildingLFrames);
+    chickenRunAnim = new AnimatedSprite(chickenRunFrames);
+    buildingLAnim = new AnimatedSprite(buildingLFrames);
+    buildingRAnim = new AnimatedSprite(buildingRFrames);
+    railAnim = new AnimatedSprite(railFrames);
+
+    chickenRunAnim.anchor.set(0.5);
     buildingLAnim.anchor.set(0.5);
-    buildingLAnim.animationSpeed = 0.2;
-    buildingLAnim.loop = true;
-    buildingLAnim.position.copyFrom(buildingL.position);
-    world.addChild(buildingLAnim);
-
-    buildingLAnim.width = buildingL.width;
-    buildingLAnim.height = buildingL.height;
-
-    const buildingRAnim = new AnimatedSprite(buildingRFrames);
     buildingRAnim.anchor.set(0.5);
-    buildingRAnim.animationSpeed = 0.2;
-    buildingRAnim.loop = true;
-    buildingRAnim.position.copyFrom(buildingR.position);
-    world.addChild(buildingRAnim);
-
-    buildingRAnim.width = buildingR.width;
-    buildingRAnim.height = buildingR.height;
-
-    const railAnim = new AnimatedSprite(railFrames);
     railAnim.anchor.set(0.5);
-    railAnim.animationSpeed = 0.4;
-    railAnim.loop = true;
+
+    chickenRunAnim.position.copyFrom(chicken.position);
+    buildingLAnim.position.copyFrom(buildingL.position);
+    buildingRAnim.position.copyFrom(buildingR.position);
     railAnim.position.copyFrom(rail.position);
+
+    chickenRunAnim.scale.set(chicken.scale.x);
+    buildingLAnim.scale.set(buildingL.scale.x);
+    buildingRAnim.scale.set(buildingR.scale.x);
+    railAnim.scale.set(rail.scale.x);
+
+    chickenRunAnim.animationSpeed = 0.6;
+    buildingLAnim.animationSpeed = 0.6;
+    buildingRAnim.animationSpeed = 0.6;
+    railAnim.animationSpeed = 0.6;
+
+    chickenRunAnim.loop = true;
+    buildingLAnim.loop = true;
+    buildingRAnim.loop = true;
+    railAnim.loop = true;
+
+    world.addChild(chickenRunAnim);
+    world.addChild(buildingLAnim);
+    world.addChild(buildingRAnim);
     world.addChild(railAnim);
 
+    world.setChildIndex(chickenRunAnim, world.children.length - 1);
 
-    railAnim.width = rail.width;
-    railAnim.height = rail.height;
-
-    buildingLAnim.roundPixels = true;
-    buildingRAnim.roundPixels = true;
-    railAnim.roundPixels = true;
-
+    chickenRunAnim.play();
     buildingLAnim.play();
     buildingRAnim.play();
     railAnim.play();
