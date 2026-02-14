@@ -42,6 +42,7 @@ async function initApp() {
   let buildingRAnim: AnimatedSprite | null = null;
   let railAnim: AnimatedSprite | null = null;
   let chickenRunAnim: AnimatedSprite | null = null;
+  let currentLane: "left" | "center" | "right" = "center";
 
   const app = new Application();
   await app.init({
@@ -83,17 +84,46 @@ async function initApp() {
     }
   }
 
-  function playBarrierAnimation() {
+  function playRoadSignAnimation() {
     let frame = 0;
 
     const interval = setInterval(() => {
-      barrier.texture = barrierFrames[frame];
+      roadSignSprite.texture = roadSignFrames[frame];
       frame++;
 
-      if (frame >= barrierFrames.length) {
+      if (frame >= roadSignFrames.length) {
         clearInterval(interval);
       }
     }, 40);
+  }
+
+  function playRoadSignCustomAnimation(frames: Texture[]) {
+    let frame = 0;
+
+    const interval = setInterval(() => {
+      roadSignSprite.texture = frames[frame];
+      frame++;
+
+      if (frame >= frames.length) {
+        clearInterval(interval);
+      }
+    }, 40);
+  }
+
+  function playBarrierAnimation(): Promise<void> {
+    return new Promise((resolve) => {
+      let frame = 0;
+
+      const interval = setInterval(() => {
+        barrier.texture = barrierFrames[frame];
+        frame++;
+
+        if (frame >= barrierFrames.length) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 40);
+    });
   }
 
   function playFingerDown() {
@@ -144,6 +174,24 @@ async function initApp() {
         ring.destroy();
       },
     });
+  }
+
+  function playFramesOnce(
+    sprite: Sprite,
+    frames: Texture[],
+    duration: number
+  ) {
+    let frame = 0;
+    const frameTime = duration / frames.length;
+
+    const interval = setInterval(() => {
+      sprite.texture = frames[frame];
+      frame++;
+
+      if (frame >= frames.length) {
+        clearInterval(interval);
+      }
+    }, frameTime * 1000);
   }
 
   root.appendChild(app.canvas);
@@ -228,7 +276,7 @@ async function initApp() {
   barrier.position.set(app.screen.width * 0.5, app.screen.height * 0.5);
   world.addChild(barrier);
 
-  const barrierRunTexture = await loadTexture(IMAGE_DATA[`barrier_00041`]);
+  const barrierRunTexture = await loadTexture(IMAGE_DATA[`barrier_00050`]);
 
   const barrierFrames: Texture[] = [];
 
@@ -262,6 +310,22 @@ async function initApp() {
     );
   }
 
+  const chickenJumpStartFrames: Texture[] = [];
+  for (let i = 53; i <= 58; i++) {
+    const num = i.toString().padStart(5, "0");
+    chickenJumpStartFrames.push(
+      await loadTexture(IMAGE_DATA[`chicken jump_${num}`])
+    );
+  }
+
+  const chickenJumpEndFrames: Texture[] = [];
+  for (let i = 58; i >= 53; i--) {
+    const num = i.toString().padStart(5, "0");
+    chickenJumpEndFrames.push(
+      await loadTexture(IMAGE_DATA[`chicken jump_${num}`])
+    );
+  }
+
   let chickenFrameIndex = 0;
 
   gsap.ticker.add(() => {
@@ -272,6 +336,63 @@ async function initApp() {
     chicken.texture = chickenFrames[Math.floor(chickenFrameIndex)];
   });
 
+  function jumpChicken(direction: "left" | "center" | "right") {
+    const moveDistance = app.screen.width * 0.15;
+    const duration = 0.3;
+
+    let targetX = chickenRunAnim
+      ? chickenRunAnim.x
+      : chicken.x;
+
+    if (direction === "left") {
+      targetX -= moveDistance;
+    } else if (direction === "right") {
+      targetX += moveDistance;
+    }
+
+    const sprite = chickenRunAnim ?? chicken;
+
+    laneButtons.forEach(btn => {
+      btn.alpha = 0.4;
+      btn.eventMode = "none";
+    });
+
+    let switched = false;
+
+    playFramesOnce(sprite, chickenJumpStartFrames, duration / 2);
+
+    gsap.to(sprite, {
+      x: targetX,
+      duration,
+      ease: "power2.out",
+      onUpdate: function () {
+        if (this.progress() >= 0.5 && !switched) {
+          switched = true;
+
+          playFramesOnce(sprite, chickenJumpEndFrames, duration / 2);
+        }
+      },
+
+      onComplete: () => {
+
+        laneButtons.forEach(btn => {
+          btn.alpha = 1;
+          btn.eventMode = "static";
+        });
+
+        if (direction === "left") {
+          playRoadSignCustomAnimation(roadSignLeftBackFrames);
+        }
+        else if (direction === "right") {
+          playRoadSignCustomAnimation(roadSignRightBackFrames);
+        }
+        else {
+          playRoadSignCustomAnimation(roadSignCenterBackFrames);
+        }
+      }
+    });
+  }
+
   const bottomPanel = new Sprite(await loadTexture(IMAGE_DATA[`PLBL bottom panel_00000`]));
   bottomPanel.anchor.set(0.5);
   bottomPanel.scale.set(0.7);
@@ -281,6 +402,51 @@ async function initApp() {
   const betsContainer = new Container();
   betsContainer.scale.set(0.7);
   app.stage.addChild(betsContainer);
+
+  const roadSignSprite = new Sprite(await loadTexture(IMAGE_DATA[`PLBL road sign_00045`]));
+  roadSignSprite.anchor.set(0.5);
+  roadSignSprite.scale.set(0.8);
+  roadSignSprite.position.set(app.screen.width * 0.5, app.screen.height * 0.5);
+
+  app.stage.addChild(roadSignSprite);
+
+  const roadSignFrames: Texture[] = [];
+
+  for (let i = 45; i <= 50; i++) {
+    const num = i.toString().padStart(5, "0");
+    roadSignFrames.push(
+      await loadTexture(IMAGE_DATA[`PLBL road sign_${num}`])
+    );
+  }
+
+  const roadSignLeftFrames: Texture[] = [];
+  for (let i = 234; i <= 237; i++) {
+    const num = i.toString().padStart(5, "0");
+    roadSignLeftFrames.push(
+      await loadTexture(IMAGE_DATA[`PLBL road sign_${num}`])
+    );
+  }
+
+  const roadSignRightFrames: Texture[] = [];
+  for (let i = 388; i <= 391; i++) {
+    const num = i.toString().padStart(5, "0");
+    roadSignRightFrames.push(
+      await loadTexture(IMAGE_DATA[`PLBL road sign_${num}`])
+    );
+  }
+
+  const roadSignCenterFrames: Texture[] = [];
+  for (let i = 466; i <= 469; i++) {
+    const num = i.toString().padStart(5, "0");
+    roadSignCenterFrames.push(
+      await loadTexture(IMAGE_DATA[`PLBL road sign_${num}`])
+    );
+  }
+
+  const roadSignLeftBackFrames = [...roadSignLeftFrames].reverse();
+  const roadSignRightBackFrames = [...roadSignRightFrames].reverse();
+  const roadSignCenterBackFrames = [...roadSignCenterFrames].reverse();
+
 
   const clickSound = loadAudio(AUDIO_DATA.click);
 
@@ -339,6 +505,8 @@ async function initApp() {
 
       totalAmount += value;
       amountText.text = `€${totalAmount}`;
+
+      updateMainButtonState();
     });
 
     container.on("pointerup", () => {
@@ -366,6 +534,12 @@ async function initApp() {
 
   let totalAmount = 0;
 
+  function updateMainButtonState() {
+    const enabled = totalAmount > 0;
+
+    button.eventMode = enabled ? "static" : "none";
+  }
+
   const amountText = new Text("€0", {
     fontSize: 64,
     fill: 0x4a2e00,
@@ -383,13 +557,186 @@ async function initApp() {
   button.y = bottomPanel.y + bottomPanel.height / 2;
   app.stage.addChild(button);
 
-  button.eventMode = "static";
+  button.eventMode = "none";
   button.cursor = "none";
 
-  button.on("pointerdown", () => {
+  updateMainButtonState();
+
+  const leftBtnTex = new Sprite(await loadTexture(IMAGE_DATA[`PLBL button left arrow_00006`]));
+  const forwardBtnTex = new Sprite(await loadTexture(IMAGE_DATA[`PLBL button forward arrow_00005`]));
+  const rightBtnTex = new Sprite(await loadTexture(IMAGE_DATA[`PLBL button right arrow_00051`]));
+
+  const laneButtons = [leftBtnTex, forwardBtnTex, rightBtnTex];
+
+  laneButtons.forEach(btn => {
+    btn.anchor.set(0.5)
+    btn.scale.set(0.65)
+    app.stage.addChild(btn);
+
+    btn.eventMode = "static";
+    btn.cursor = "none";
+  });
+
+  function setLaneButtonsState(activeBtn: Sprite | null) {
+    laneButtons.forEach(btn => {
+      btn.alpha = btn === activeBtn ? 1 : 0.4;
+    });
+  }
+
+  function handleLaneClick(multiplier: number, btn: Sprite) {
+    if (totalAmount <= 0) return;
 
     playFingerDown();
     playClick();
+
+    gsap.to(btn.scale, {
+      x: 0.72,
+      y: 0.72,
+      duration: 0.08,
+      ease: "power1.out",
+    });
+
+    gsap.to(btn.scale, {
+      x: 0.65,
+      y: 0.65,
+      duration: 0.12,
+      ease: "back.out(2)",
+      delay: 0.08,
+    });
+
+    animateTotalMultiply(multiplier);
+
+    setLaneButtonsState(btn);
+
+    if (btn === leftBtnTex) {
+      playRoadSignCustomAnimation(roadSignLeftFrames);
+      jumpChicken("left");
+    }
+    else if (btn === rightBtnTex) {
+      playRoadSignCustomAnimation(roadSignRightFrames);
+      jumpChicken("right");
+    }
+    else if (btn === forwardBtnTex) {
+      playRoadSignCustomAnimation(roadSignCenterFrames);
+      jumpChicken("center");
+    }
+  }
+
+  function setupLaneButton(btn: Sprite, multiplier: number) {
+    btn.on("pointerdown", () => {
+      handleLaneClick(multiplier, btn);
+    });
+
+    btn.on("pointerup", () => {
+      playFingerUp();
+
+      laneButtons.forEach(b => b.eventMode = "none");
+    });
+
+    btn.on("pointerupoutside", () => {
+      playFingerUp();
+
+      laneButtons.forEach(b => b.eventMode = "none");
+    });
+  }
+
+  setupLaneButton(leftBtnTex, 2);
+  setupLaneButton(forwardBtnTex, 1.5);
+  setupLaneButton(rightBtnTex, 3);
+
+  const withdrawContainer = new Container();
+
+  const withdrawBg = new Sprite(
+    await loadTexture(IMAGE_DATA[`PLBL withdraw_00009`])
+  );
+
+  withdrawBg.anchor.set(0.5);
+  withdrawBg.scale.set(0.8);
+
+  withdrawContainer.addChild(withdrawBg);
+  app.stage.addChild(withdrawContainer);
+
+  const withdrawLabel = new Text("Withdraw", {
+    fontSize: 26,
+    fill: 0x6b5c3a,
+    fontWeight: "bold",
+  });
+
+  withdrawLabel.anchor.set(0, 0.5);
+  withdrawLabel.x = -withdrawBg.width * 0.25;
+  withdrawLabel.y = -6;
+
+  withdrawContainer.addChild(withdrawLabel);
+
+  function animateTotalMultiply(multiplier: number) {
+    const start = 0;
+    const target = totalAmount * multiplier;
+
+    const duration = 0.4;
+    const fps = 60;
+    const totalFrames = duration * fps;
+    let frame = 0;
+
+    const diff = target - start;
+
+    const interval = setInterval(() => {
+      frame++;
+
+      const progress = frame / totalFrames;
+      totalAmount = start + diff * progress;
+
+      if (frame >= totalFrames) {
+        totalAmount = target;
+        clearInterval(interval);
+      }
+
+      withdrawAmountText.text = totalAmount.toFixed(2);
+      amountText.text = `€${totalAmount.toFixed(2)}`;
+    }, 1000 / fps);
+  }
+
+  const withdrawEUR = new Text("EUR", {
+    fontSize: 26,
+    fill: 0x6b5c3a,
+    fontWeight: "bold",
+  });
+
+  withdrawEUR.anchor.set(0, 0.5);
+  withdrawEUR.x = withdrawBg.width * 0.15;
+  withdrawEUR.y = -5;
+
+  withdrawContainer.addChild(withdrawEUR);
+
+  const withdrawAmountText = new Text("0.00", {
+    fontSize: 26,
+    fill: 0x6b5c3a,
+    fontWeight: "bold",
+  });
+
+  withdrawAmountText.anchor.set(0.3, 0.5);
+  withdrawAmountText.x = withdrawBg.width * 0.05;
+  withdrawAmountText.y = -5;
+
+  withdrawContainer.addChild(withdrawAmountText);
+
+  const afterBarrierSprites = [
+    leftBtnTex,
+    forwardBtnTex,
+    rightBtnTex,
+    withdrawContainer,
+    roadSignSprite,
+  ];
+
+  afterBarrierSprites.forEach(s => {
+    s.visible = false;
+  });
+
+  button.on("pointerdown", (e) => {
+
+    playFingerDown();
+    playClick();
+
+    showClickCircle(e.global.x, e.global.y);
 
     gsap.to(button.scale, {
       x: 0.72,
@@ -406,7 +753,7 @@ async function initApp() {
 
   });
 
-  button.on("pointerup", () => {
+  button.on("pointerup", async () => {
 
     playFingerUp();
 
@@ -451,7 +798,14 @@ async function initApp() {
       }
     });
 
-    playBarrierAnimation();
+    await playBarrierAnimation();
+
+    afterBarrierSprites.forEach(s => {
+      s.visible = true;
+    });
+
+    roadSignSprite.visible = true;
+    playRoadSignAnimation();
 
     world.removeChild(chicken);
     world.removeChild(barrier);
@@ -530,6 +884,9 @@ async function initApp() {
   runText.anchor.set(0.5);
   runText.position.set(button.x, button.y);
   app.stage.addChild(runText);
+
+  runText.eventMode = "none";
+  runText.cursor = "default";
 
   const logo = new Sprite(await loadTexture(IMAGE_DATA["logo_00000"]));
   logo.anchor.set(0.5)
@@ -634,6 +991,23 @@ async function initApp() {
     if (railAnim) {
       railAnim.position.set(centerX, centerY);
     }
+
+    roadSignSprite.position.set(
+      w / 2,
+      h * 0.18
+    );
+
+    const laneY = h * 0.86;
+    const offsetX = w * 0.25;
+
+    leftBtnTex.position.set(w / 2 - offsetX / 1.5, laneY);
+    forwardBtnTex.position.set(w / 2, laneY);
+    rightBtnTex.position.set(w / 2 + offsetX / 1.5, laneY);
+
+    withdrawContainer.position.set(
+      w / 2,
+      h * 0.72
+    );
   }
 
   app.stage.eventMode = "static";
