@@ -90,7 +90,7 @@ async function initApp() {
 
     let xPos = lanePositions[lane];
 
-    const offsetFix = app.screen.width * 0.06;
+    const offsetFix = app.screen.width * 0.055;
 
     if (lane === "left") xPos -= offsetFix;
     if (lane === "right") xPos += offsetFix;
