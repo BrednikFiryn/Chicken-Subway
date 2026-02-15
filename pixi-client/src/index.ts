@@ -18,6 +18,8 @@ import { goToStore } from "./js/goToStore";
 
 gsap.registerPlugin(MotionPathPlugin);
 
+const MAX_AMOUNT = 50;
+
 function loadAudio(base64: string): HTMLAudioElement {
   const audio = new Audio();
   audio.src = base64.trim();
@@ -42,7 +44,7 @@ async function initApp() {
   let buildingRAnim: AnimatedSprite | null = null;
   let railAnim: AnimatedSprite | null = null;
   let chickenRunAnim: AnimatedSprite | null = null;
-  let currentLane: "left" | "center" | "right" = "center";
+  let limitTween: gsap.core.Timeline | null = null;
 
   const app = new Application();
   await app.init({
@@ -50,6 +52,96 @@ async function initApp() {
     resizeTo: window,
     antialias: true,
   });
+
+  type Lane = "left" | "center" | "right";
+
+  let currentLane: Lane = "center";
+
+  let lanePositions: Record<Lane, number> = {
+    left: 0,
+    center: 0,
+    right: 0
+  };
+
+  function spawnTrain(lane: Lane) {
+
+    let frames: Texture[] = [];
+
+    if (lane === "center") {
+      frames = trainMidFrames;
+    } else {
+      frames = trainLeftFrames;
+    }
+
+    const train = new AnimatedSprite(frames);
+
+    train.anchor.set(0.5);
+
+    const baseScale = 0.7;
+
+    if (lane === "right") {
+      train.scale.set(-baseScale, baseScale);
+    } else {
+      train.scale.set(baseScale);
+    }
+
+    train.animationSpeed = 0.3;
+    train.loop = false;
+
+    let xPos = lanePositions[lane];
+
+    const offsetFix = app.screen.width * 0.06;
+
+    if (lane === "left") xPos -= offsetFix;
+    if (lane === "right") xPos += offsetFix;
+
+    train.x = xPos;
+
+    train.y = blur.y - blur.height / 2 + train.height / 2;
+
+    world.addChild(train);
+    train.play();
+
+    gsap.to(train, {
+      y: app.screen.height * 0.8,
+      duration: 1.6,
+      ease: "power2.out",
+      onComplete: () => {
+        world.removeChild(train);
+        train.destroy();
+      }
+    });
+  }
+
+  function playLimitAnimation() {
+    if (limitTween) {
+      limitTween.kill();
+    }
+
+    amountText.style.fill = 0xff0000;
+
+    limitTween = gsap.timeline({
+      onComplete: () => {
+        amountText.style.fill = 0x000000;
+        amountText.scale.set(0.7);
+        limitTween = null;
+      }
+    });
+
+    limitTween.to(amountText.scale, {
+      x: 0.8,
+      y: 0.8,
+      duration: 0.1,
+      ease: "power2.out"
+    });
+
+    limitTween.to(amountText.scale, {
+      x: 0.7,
+      y: 0.7,
+      duration: 0.2,
+      ease: "back.out(2)"
+    });
+  }
 
   function showClickCircle(x: number, y: number) {
     for (let i = 0; i < 2; i++) {
@@ -194,6 +286,11 @@ async function initApp() {
     }, frameTime * 1000);
   }
 
+  function updateWithdrawLayout() {
+    withdrawEUR.x =
+      withdrawAmountText.x + withdrawAmountText.width;
+  }
+
   root.appendChild(app.canvas);
 
   document.body.style.cursor = "none";
@@ -286,6 +383,23 @@ async function initApp() {
       await loadTexture(IMAGE_DATA[`barrier_${num}`])
     );
   }
+
+  const trainLeftFrames: Texture[] = [];
+  for (let i = 7; i <= 20; i++) {
+    const num = i.toString().padStart(5, "0");
+    trainLeftFrames.push(
+      await loadTexture(IMAGE_DATA[`train side L_${num}`])
+    );
+  }
+
+  const trainMidFrames: Texture[] = [];
+  for (let i = 6; i <= 20; i++) {
+    const num = i.toString().padStart(5, "0");
+    trainMidFrames.push(
+      await loadTexture(IMAGE_DATA[`train Mid_${num}`])
+    );
+  }
+
   const chicken = new Sprite(await loadTexture(IMAGE_DATA[`chicken idle_0000`]));
   chicken.anchor.set(0.5);
   chicken.scale.set(0.7);
@@ -336,21 +450,39 @@ async function initApp() {
     chicken.texture = chickenFrames[Math.floor(chickenFrameIndex)];
   });
 
-  function jumpChicken(direction: "left" | "center" | "right") {
-    const moveDistance = app.screen.width * 0.15;
-    const duration = 0.3;
-
-    let targetX = chickenRunAnim
-      ? chickenRunAnim.x
-      : chicken.x;
-
-    if (direction === "left") {
-      targetX -= moveDistance;
-    } else if (direction === "right") {
-      targetX += moveDistance;
-    }
+  function jumpChicken(targetLane: Lane) {
 
     const sprite = chickenRunAnim ?? chicken;
+
+    if (currentLane === targetLane) {
+
+      laneButtons.forEach(btn => {
+        btn.alpha = 1;
+        btn.eventMode = "static";
+      });
+
+      if (targetLane === "left") {
+        playRoadSignCustomAnimation(roadSignLeftBackFrames);
+      } else if (targetLane === "right") {
+        playRoadSignCustomAnimation(roadSignRightBackFrames);
+      } else {
+        playRoadSignCustomAnimation(roadSignCenterBackFrames);
+      }
+
+      spawnTrain(targetLane);
+
+      return;
+    }
+
+    const duration = 0.35;
+    const peakHeight = 70;
+
+    const startX = sprite.x;
+    const startY = sprite.y;
+    const targetX = lanePositions[targetLane];
+
+    currentLane = targetLane;
+    isJumping = true;
 
     laneButtons.forEach(btn => {
       btn.alpha = 0.4;
@@ -359,34 +491,56 @@ async function initApp() {
 
     let switched = false;
 
-    playFramesOnce(sprite, chickenJumpStartFrames, duration / 2);
-
     gsap.to(sprite, {
-      x: targetX,
       duration,
-      ease: "power2.out",
-      onUpdate: function () {
-        if (this.progress() >= 0.5 && !switched) {
+      ease: "none",
+
+      onStart() {
+        playFramesOnce(sprite, chickenJumpStartFrames, duration / 2);
+
+        gsap.to(sprite.scale, {
+          x: 0.75,
+          y: 0.6,
+          duration: 0.08,
+          yoyo: true,
+          repeat: 1,
+          ease: "power1.out"
+        });
+      },
+
+      onUpdate() {
+        const progress = this.progress();
+
+        sprite.x = startX + (targetX - startX) * progress;
+
+        const arc = 4 * peakHeight * progress * (1 - progress);
+        sprite.y = startY - arc;
+
+        if (progress >= 0.5 && !switched) {
           switched = true;
+
+          spawnTrain(targetLane);
 
           playFramesOnce(sprite, chickenJumpEndFrames, duration / 2);
         }
       },
 
-      onComplete: () => {
+      onComplete() {
+        sprite.y = startY;
+        sprite.x = targetX;
+
+        isJumping = false;
 
         laneButtons.forEach(btn => {
           btn.alpha = 1;
           btn.eventMode = "static";
         });
 
-        if (direction === "left") {
+        if (targetLane === "left") {
           playRoadSignCustomAnimation(roadSignLeftBackFrames);
-        }
-        else if (direction === "right") {
+        } else if (targetLane === "right") {
           playRoadSignCustomAnimation(roadSignRightBackFrames);
-        }
-        else {
+        } else {
           playRoadSignCustomAnimation(roadSignCenterBackFrames);
         }
       }
@@ -503,6 +657,11 @@ async function initApp() {
         ease: "power1.out",
       });
 
+      if (totalAmount + value > MAX_AMOUNT) {
+        playLimitAnimation();
+        return;
+      }
+
       totalAmount += value;
       amountText.text = `€${totalAmount}`;
 
@@ -587,6 +746,11 @@ async function initApp() {
     if (totalAmount <= 0) return;
 
     playFingerDown();
+
+    setTimeout(() => {
+      playFingerUp();
+    }, 120);
+
     playClick();
 
     gsap.to(btn.scale, {
@@ -629,14 +793,10 @@ async function initApp() {
 
     btn.on("pointerup", () => {
       playFingerUp();
-
-      laneButtons.forEach(b => b.eventMode = "none");
     });
 
     btn.on("pointerupoutside", () => {
       playFingerUp();
-
-      laneButtons.forEach(b => b.eventMode = "none");
     });
   }
 
@@ -670,6 +830,7 @@ async function initApp() {
 
   function animateTotalMultiply(multiplier: number) {
     const start = 0;
+
     const target = totalAmount * multiplier;
 
     const duration = 0.4;
@@ -692,20 +853,10 @@ async function initApp() {
 
       withdrawAmountText.text = totalAmount.toFixed(2);
       amountText.text = `€${totalAmount.toFixed(2)}`;
+
+      updateWithdrawLayout();
     }, 1000 / fps);
   }
-
-  const withdrawEUR = new Text("EUR", {
-    fontSize: 26,
-    fill: 0x6b5c3a,
-    fontWeight: "bold",
-  });
-
-  withdrawEUR.anchor.set(0, 0.5);
-  withdrawEUR.x = withdrawBg.width * 0.15;
-  withdrawEUR.y = -5;
-
-  withdrawContainer.addChild(withdrawEUR);
 
   const withdrawAmountText = new Text("0.00", {
     fontSize: 26,
@@ -718,6 +869,20 @@ async function initApp() {
   withdrawAmountText.y = -5;
 
   withdrawContainer.addChild(withdrawAmountText);
+
+  const withdrawEUR = new Text("EUR", {
+    fontSize: 26,
+    fill: 0x6b5c3a,
+    fontWeight: "bold",
+  });
+
+  withdrawEUR.anchor.set(0, 0.5);
+  withdrawEUR.x = withdrawAmountText.x + withdrawAmountText.width;
+  withdrawEUR.y = -5;
+
+  withdrawContainer.addChild(withdrawEUR);
+
+  updateWithdrawLayout();
 
   const afterBarrierSprites = [
     leftBtnTex,
@@ -1008,6 +1173,15 @@ async function initApp() {
       w / 2,
       h * 0.72
     );
+
+    const laneOffset = w * 0.15;
+
+    lanePositions.center = centerX;
+    lanePositions.left = centerX - laneOffset;
+    lanePositions.right = centerX + laneOffset;
+
+    const sprite = chickenRunAnim ?? chicken;
+    sprite.x = lanePositions[currentLane];
   }
 
   app.stage.eventMode = "static";
