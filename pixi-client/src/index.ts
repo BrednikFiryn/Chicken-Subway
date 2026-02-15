@@ -89,27 +89,197 @@ async function initApp() {
     train.loop = false;
 
     let xPos = lanePositions[lane];
-
     const offsetFix = app.screen.width * 0.055;
 
     if (lane === "left") xPos -= offsetFix;
     if (lane === "right") xPos += offsetFix;
 
     train.x = xPos;
-
     train.y = blur.y - blur.height / 2 + train.height / 2;
 
     world.addChild(train);
-    train.play();
 
-    gsap.to(train, {
-      y: app.screen.height * 0.8,
-      duration: 1.6,
-      ease: "power2.out",
-      onComplete: () => {
-        world.removeChild(train);
-        train.destroy();
+    const sprite = chickenRunAnim ?? chicken;
+    if (world.children.includes(sprite)) {
+      world.setChildIndex(sprite, world.children.length - 1);
+    }
+
+    train.play();
+    trainSound.currentTime = 0;
+    trainSound.play().catch(() => { });
+
+    let attached = false;
+
+    let smokeAnim: AnimatedSprite | null = null;
+
+    train.onFrameChange = (frame: number) => {
+
+      if (frame === 6 && !attached) {
+        attached = true;
+
+        const sprite = chickenRunAnim ?? chicken;
+
+        if (world.children.includes(sprite)) {
+          world.removeChild(sprite);
+        }
+
+        punchSound.currentTime = 0;
+        punchSound.play().catch(() => { });
+
+        smokeAnim = new AnimatedSprite(smokeFrames);
+        smokeAnim.anchor.set(0.5);
+        smokeAnim.scale.set(sprite.scale.x * 3);
+
+        smokeAnim.position.set(sprite.x, sprite.y + 30);
+
+        smokeAnim.animationSpeed = 0.6;
+        smokeAnim.loop = false;
+
+        world.addChild(smokeAnim);
+
+        world.setChildIndex(smokeAnim, world.children.length - 1);
+
+        smokeAnim.play();
+
+        smokeAnim.onComplete = () => {
+          if (smokeAnim && world.children.includes(smokeAnim)) {
+            world.removeChild(smokeAnim);
+            smokeAnim.destroy();
+            smokeAnim = null;
+          }
+        };
       }
+
+      if (frame === train.totalFrames - 1) {
+
+        gsap.to(train, {
+          y: app.screen.height + 200,
+          duration: 0.6,
+          ease: "power2.in",
+          onComplete: () => {
+            world.removeChild(train);
+            train.destroy();
+            softRestartGame();
+          }
+        });
+      }
+    };
+  }
+
+  function softRestartGame() {
+
+    isJumping = false;
+    currentLane = "center";
+
+    if (chickenRunAnim) {
+      world.removeChild(chickenRunAnim);
+      chickenRunAnim.destroy();
+      chickenRunAnim = null;
+    }
+    if (buildingLAnim) {
+      world.removeChild(buildingLAnim);
+      buildingLAnim.destroy();
+      buildingLAnim = null;
+    }
+    if (buildingRAnim) {
+      world.removeChild(buildingRAnim);
+      buildingRAnim.destroy();
+      buildingRAnim = null;
+    }
+    if (railAnim) {
+      world.removeChild(railAnim);
+      railAnim.destroy();
+      railAnim = null;
+    }
+
+    if (!world.children.includes(buildingL)) world.addChild(buildingL);
+    if (!world.children.includes(buildingR)) world.addChild(buildingR);
+    if (!world.children.includes(rail)) world.addChild(rail);
+    if (!world.children.includes(barrier)) world.addChild(barrier);
+
+    bottomPanel.visible = false;
+    betsContainer.visible = false;
+    button.visible = false;
+    runText.visible = false;
+    amountText.visible = false;
+
+    leftBtnTex.visible = false;
+    forwardBtnTex.visible = false;
+    rightBtnTex.visible = false;
+    withdrawContainer.visible = false;
+    roadSignSprite.visible = false;
+
+    roadSignSprite.texture = roadSignFrames[0];
+
+    barrier.visible = false;
+
+    totalAmount = 0;
+    amountText.text = "€0";
+    withdrawAmountText.text = "0.00";
+
+    resizeLayout();
+
+    const centerX = lanePositions.center;
+    const centerY = app.screen.height * 0.72 - 70;
+
+    const startY = app.screen.height + 150;
+
+    const introChicken = new AnimatedSprite(chickenRunFrames);
+    introChicken.anchor.set(0.5);
+    introChicken.scale.set(0.7);
+    introChicken.animationSpeed = 0.6;
+    introChicken.loop = true;
+
+    introChicken.position.set(centerX, startY);
+
+    world.addChild(introChicken);
+    world.setChildIndex(introChicken, world.children.length - 1);
+
+    introChicken.play();
+
+    gsap.delayedCall(0.5, () => {
+
+      gsap.to(introChicken, {
+        y: centerY,
+        duration: 0.8,
+        ease: "power2.out",
+        onComplete: () => {
+
+          world.removeChild(introChicken);
+          introChicken.destroy();
+
+          chicken.position.set(centerX, centerY);
+          chicken.texture = chickenFrames[0];
+
+          world.addChild(chicken);
+
+          world.setChildIndex(chicken, world.children.length - 1);
+
+          barrier.texture = barrierFrames[0];
+          barrier.visible = true;
+
+          bottomPanel.alpha = 0;
+          betsContainer.alpha = 0;
+          button.alpha = 0;
+          runText.alpha = 0;
+          amountText.alpha = 0;
+
+          bottomPanel.visible = true;
+          betsContainer.visible = true;
+          button.visible = true;
+          runText.visible = true;
+          amountText.visible = true;
+
+          gsap.to([bottomPanel, betsContainer, button, runText, amountText], {
+            alpha: 1,
+            duration: 0.4,
+            ease: "power1.out"
+          });
+
+          updateMainButtonState();
+        }
+      });
+
     });
   }
 
@@ -400,6 +570,15 @@ async function initApp() {
     );
   }
 
+  const smokeFrames: Texture[] = [];
+
+  for (let i = 5; i <= 18; i++) {
+    const num = i.toString().padStart(5, "0");
+    smokeFrames.push(
+      await loadTexture(IMAGE_DATA[`SMOKE_${num}`])
+    );
+  }
+
   const chicken = new Sprite(await loadTexture(IMAGE_DATA[`chicken idle_0000`]));
   chicken.anchor.set(0.5);
   chicken.scale.set(0.7);
@@ -602,10 +781,12 @@ async function initApp() {
   const roadSignCenterBackFrames = [...roadSignCenterFrames].reverse();
 
 
-  const clickSound = loadAudio(AUDIO_DATA.click);
+  const clickSound = loadAudio(AUDIO_DATA.modern_click_3);
+  const trainSound = loadAudio(AUDIO_DATA.train);
+  const punchSound = loadAudio(AUDIO_DATA.punch);
 
   function playClick() {
-    const sound = new Audio(AUDIO_DATA.click.trim());
+    const sound = new Audio(AUDIO_DATA.modern_click_3.trim());
     sound.volume = 0.8;
     sound.play().catch(() => { });
   }
